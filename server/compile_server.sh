@@ -1,0 +1,1 @@
+g++ master_server.cpp task_worker.cpp ../tools/helper.cpp ../rpc/master_rpc_server.cpp ../rpc/master_rpc_server_cpp/MasterRPCService.cpp ../rpc/master_rpc_server_cpp/client_master_types.cpp -lthrift -std=c++11 -lpthread -lrt -g -o master_server
