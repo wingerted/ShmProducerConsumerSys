@@ -51,7 +51,7 @@ TaskWorker::TaskWorker(int id, int buffer_size) {
 }
 
 void* TaskWorker::InitWorkerBuffer(std::string work_buffer_name) {
-  int fd = shm_open(work_buffer_name.c_str(), O_CREAT | O_RDWR, 0770);
+  int fd = shm_open(work_buffer_name.c_str(), O_CREAT | O_RDWR, 0660);
   ftruncate(fd, sizeof(WorkerBuffer));
   fchmod(fd, S_IRWXU | S_IRWXG);
 
@@ -68,7 +68,9 @@ void TaskWorker::InitSem(std::string sem_name,
                          std::string sem_path,
                          std::vector<sem_t *> *sem_vector) {
 
-  auto sem = sem_open(sem_name.c_str(), O_CREAT | O_RDWR, 0770, 0);
+  auto sem = sem_open(sem_name.c_str(), O_CREAT | O_RDWR, 0660, 0);
+  std::cout << sem_name << std::endl;
+  std::cout << sem_path << std::endl;
   std::cout << sem << std::endl;
 
   if (sem_vector != nullptr) {
@@ -76,7 +78,7 @@ void TaskWorker::InitSem(std::string sem_name,
   } else {
     this->worker_sems.control_sem = sem;
   }
-  chmod(sem_path.c_str(), S_IRWXU | S_IRWXG);
+  chmod(sem_path.c_str(), S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
 }
 
 void TaskWorker::StartRun() {

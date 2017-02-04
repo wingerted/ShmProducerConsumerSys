@@ -30,41 +30,37 @@ TaskClient::TaskClient(int worker_id, int buffer_id, int worker_num,
   this->buffer_id = buffer_id;
   this->worker_num = worker_num;
   this->buffer_size = buffer_size;
-  std::cout << "Worker ID: " << worker_id
-            << "Buffer ID: " << buffer_id
-            << "Worker Num: " << worker_num
-            << "Buffer Size: " << buffer_size << std::endl;
+  std::cout << "Worker ID: " << worker_id << "Buffer ID: " << buffer_id
+            << "Worker Num: " << worker_num << "Buffer Size: " << buffer_size
+            << std::endl;
 
 
-  std::string work_shm_name = "/Task_Worker_" + std::to_string(worker_id) +
-                              "_Work_Shm_" + std::to_string(buffer_id);
-  int fd = shm_open(work_shm_name.c_str(), O_RDWR, 0770);
+  std::string work_shm_name = "/Task_Worker_" + std::to_string(worker_id) + "_Work_Shm_" + std::to_string(buffer_id);
+  int fd = shm_open(work_shm_name.c_str(), O_RDWR, 0660);
   ftruncate(fd, sizeof(WorkerBuffer));
-  this->worker_buffer = (WorkerBuffer *)mmap(
-      NULL, sizeof(WorkerBuffer), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+  this->worker_buffer = (WorkerBuffer*)mmap(NULL, sizeof(WorkerBuffer), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
 
-  fd = shm_open("/Master_Client_Shm", O_CREAT | O_RDWR, 0770);
-  ftruncate(fd, sizeof(MasterClientMeta) * worker_num * buffer_size);
+  fd = shm_open("/Task_Master_Client_Shm", O_CREAT|O_RDWR, 0660);
+  ftruncate(fd, sizeof(MasterClientMeta)*worker_num*buffer_size);
 
-  void *buffer = mmap(NULL, sizeof(MasterClientMeta) * worker_num * buffer_size,
-                      PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-  this->master_client_meta_buffer = (MasterClientMeta *)buffer;
+  void* buffer = mmap(NULL,
+                      sizeof(MasterClientMeta)*worker_num*buffer_size,
+                      PROT_READ|PROT_WRITE,
+                      MAP_SHARED,
+                      fd,
+                      0);
+  this->master_client_meta_buffer = (MasterClientMeta*)buffer;
 
-  std::string control_sem_name =
-      "/Task_Worker_" + std::to_string(worker_id) + "_Control_Sem";
+  std::string control_sem_name = "/Task_Worker_" + std::to_string(worker_id) + "_Control_Sem";
   std::cout << control_sem_name << std::endl;
-  this->control_sem = sem_open(control_sem_name.c_str(), O_CREAT | O_RDWR, 0770, 0);
+  this->control_sem = sem_open(control_sem_name.c_str(), 0660);
   std::cout << this->control_sem << std::endl;
 
   std::string input_sem_name = "/Task_Worker_" + std::to_string(worker_id) + "_Input_Sem_" + std::to_string(buffer_id);
-  std::cout << input_sem_name.c_str() << std::endl;
-  this->input_sem = sem_open(input_sem_name.c_str(), O_CREAT | O_RDWR, 0770, 0);
-  std::cout << this->input_sem << std::endl;
+  this->input_sem = sem_open(input_sem_name.c_str(), 0660);
 
-  std::string output_sem_name = "/Task_Worker_" + std::to_string(worker_id) +
-                                "_Output_Sem_" + std::to_string(buffer_id);
-  this->output_sem = sem_open(output_sem_name.c_str(), O_CREAT | O_RDWR, 0770, 0);
-  std::cout << this->output_sem << std::endl;
+  std::string output_sem_name = "/Task_Worker_" + std::to_string(worker_id) + "_Output_Sem_" + std::to_string(buffer_id);
+  this->output_sem = sem_open(output_sem_name.c_str(), 0660);
 }
 
 void TaskClient::run() {
@@ -78,7 +74,8 @@ void TaskClient::run() {
 
   std::cout << this->input_sem << std::endl;
 
-  while (sem_trywait(this->input_sem) == 0);
+  while (sem_trywait(this->input_sem) == 0)
+    ;
 
   std::cout << "Clean Input Over" << std::endl;
 
@@ -87,8 +84,6 @@ void TaskClient::run() {
 
   sem_post(this->control_sem);
   std::cout << "Add Control Over" << std::endl;
-
-
 
   while (true) {
     std::cout << "In While" << std::endl;
@@ -104,7 +99,8 @@ void TaskClient::run() {
       }
       if (sem_result == 0) {
         int judge_worker_pid =
-            this->master_client_meta_buffer[this->worker_id * this->buffer_size +
+            this->master_client_meta_buffer[this->worker_id *
+                                                this->buffer_size +
                                             this->buffer_id]
                 .worker_pid;
         std::cout << "Worker Pid: " << judge_worker_pid << std::endl;
@@ -159,16 +155,19 @@ void TaskClient::CopyDataToWorkBuffer(double *matrix_A, int A_row_num,
   //  printf("MemCopy Over\n");
 
   this->worker_buffer->input_client_pid =
-      this->master_client_meta_buffer[this->worker_id * this->buffer_size + this->buffer_id]
+      this->master_client_meta_buffer[this->worker_id * this->buffer_size +
+                                      this->buffer_id]
           .current_client_pid;
 }
 
 void TaskClient::CopyDataBack(double *matrix_X, int X_row_num, int X_col_num) {
   //  printf("Copy Data Back\n");
   //  printf("\nX_Matrix\n");
-  this->master_client_meta_buffer[this->worker_id * this->buffer_size + this->buffer_id]
+  this->master_client_meta_buffer[this->worker_id * this->buffer_size +
+                                  this->buffer_id]
       .last_client_pid =
-      this->master_client_meta_buffer[this->worker_id * this->buffer_size + this->buffer_id]
+      this->master_client_meta_buffer[this->worker_id * this->buffer_size +
+                                      this->buffer_id]
           .current_client_pid;
 
   memcpy(matrix_X, this->worker_buffer->matrix_X,
